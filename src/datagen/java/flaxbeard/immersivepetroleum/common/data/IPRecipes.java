@@ -4,17 +4,26 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import blusunrize.immersiveengineering.api.EnumMetals;
 import blusunrize.immersiveengineering.api.IETags;
+import blusunrize.immersiveengineering.api.crafting.FluidTagInput;
 import blusunrize.immersiveengineering.api.crafting.IngredientWithSize;
+import blusunrize.immersiveengineering.api.crafting.builders.ArcFurnaceRecipeBuilder;
+import blusunrize.immersiveengineering.api.crafting.builders.BlastFurnaceFuelBuilder;
+import blusunrize.immersiveengineering.api.crafting.builders.CrusherRecipeBuilder;
 import blusunrize.immersiveengineering.api.crafting.builders.MixerRecipeBuilder;
-import blusunrize.immersiveengineering.common.blocks.EnumMetals;
+import blusunrize.immersiveengineering.api.crafting.builders.SqueezerRecipeBuilder;
 import blusunrize.immersiveengineering.common.blocks.IEBlocks;
+import blusunrize.immersiveengineering.common.blocks.IEBlocks.MetalDecoration;
 import blusunrize.immersiveengineering.common.crafting.fluidaware.IngredientFluidStack;
 import blusunrize.immersiveengineering.common.items.IEItems;
+import blusunrize.immersiveengineering.data.recipebuilder.FluidAwareShapedRecipeBuilder;
 import flaxbeard.immersivepetroleum.ImmersivePetroleum;
 import flaxbeard.immersivepetroleum.api.IPTags;
+import flaxbeard.immersivepetroleum.api.crafting.builders.CokerUnitRecipeBuilder;
 import flaxbeard.immersivepetroleum.api.crafting.builders.DistillationRecipeBuilder;
 import flaxbeard.immersivepetroleum.api.crafting.builders.ReservoirTypeBuilder;
+import flaxbeard.immersivepetroleum.api.crafting.builders.SulfurRecoveryRecipeBuilder;
 import flaxbeard.immersivepetroleum.common.IPContent;
 import flaxbeard.immersivepetroleum.common.IPContent.Blocks;
 import flaxbeard.immersivepetroleum.common.IPContent.BoatUpgrades;
@@ -22,9 +31,12 @@ import net.minecraft.data.DataGenerator;
 import net.minecraft.data.IFinishedRecipe;
 import net.minecraft.data.RecipeProvider;
 import net.minecraft.data.ShapedRecipeBuilder;
+import net.minecraft.data.ShapelessRecipeBuilder;
+import net.minecraft.data.SingleItemRecipeBuilder;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.item.crafting.Ingredient;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.IItemProvider;
 import net.minecraft.util.ResourceLocation;
@@ -49,6 +61,8 @@ public class IPRecipes extends RecipeProvider{
 		blockRecipes();
 		speedboatUpgradeRecipes();
 		distillationRecipes();
+		cokerRecipes();
+		hydrotreaterRecipes();
 		reservoirs();
 		
 		MixerRecipeBuilder.builder(IPContent.Fluids.napalm, 500)
@@ -59,24 +73,16 @@ public class IPRecipes extends RecipeProvider{
 	}
 	
 	private void reservoirs(){
-		ReservoirTypeBuilder.builder("aquifer")
-			.setFluid(Fluids.WATER)
-			.min(5000.000)
-			.max(10000.000)
-			.trace(0.006)
-			.weight(30)
-			.addDimensions(false, DimensionType.OVERWORLD.getLocation()) // false = Whitelist, true = blacklist
-//			.addDimensions(true, DimensionType.OVERWORLD.getRegistryName()) // Will crash the generator, only one or the other but not both at the same time
-//			.addBiomes(false, new ResourceLocation[]{}) // Just for demonstration purposes.
+		ReservoirTypeBuilder.builder("aquifer", Fluids.WATER, 5000.000, 10000.000, 0.006, 30)
+			.addDimensions(false, DimensionType.OVERWORLD.getLocation())
 			.build(this.out, rl("reservoirs/aquifer"));
 		
-		// Shorthand for the above. (name   fluid                      min       max        trace  weight)
 		ReservoirTypeBuilder.builder("oil", IPContent.Fluids.crudeOil, 2500.000, 15000.000, 0.006, 40)
-			.addDimensions(true, DimensionType.THE_END.getLocation()) // false = Whitelist, true = blacklist
+			.addDimensions(true, DimensionType.THE_END.getLocation())
 			.build(this.out, rl("reservoirs/oil"));
 		
 		ReservoirTypeBuilder.builder("lava", Fluids.LAVA, 250.000, 1000.000, 0.0, 30)
-			.addDimensions(true, DimensionType.THE_END.getLocation()) // false = Whitelist, true = blacklist
+			.addDimensions(true, DimensionType.THE_END.getLocation())
 			.build(this.out, rl("reservoirs/lava"));
 	}
 	
@@ -85,12 +91,76 @@ public class IPRecipes extends RecipeProvider{
 		
 		DistillationRecipeBuilder.builder(new FluidStack[]{
 				new FluidStack(IPContent.Fluids.lubricant, 9),
-				new FluidStack(IPContent.Fluids.diesel, 27),
+				new FluidStack(IPContent.Fluids.diesel_sulfur, 14),
 				new FluidStack(IPContent.Fluids.gasoline, 39)})
 			.addByproduct(new ItemStack(IPContent.Items.bitumen), 0.07)
 			.addInput(IPTags.Fluids.crudeOil, 75)
-			.setEnergy(2048)
+			.setTimeAndEnergy(1, 2048)
 			.build(this.out, rl("distillationtower/oilcracking"));
+	}
+	
+	/** Contains everything related to Petcoke */
+	private void cokerRecipes(){
+		CokerUnitRecipeBuilder.builder(new ItemStack(IPContent.Items.petcoke), IPTags.Fluids.diesel_sulfur, 27)
+			.addInputItem(IPTags.Items.bitumen, 2)
+			.addInputFluid(FluidTags.WATER, 125)
+			.setTimeAndEnergy(30, 1024)
+			.build(this.out, rl("coking/petcoke"));
+		
+		// Petcoke Compression and Decompression
+		ShapedRecipeBuilder.shapedRecipe(IPContent.Blocks.petcoke)
+			.key('c', IPTags.Items.petcoke)
+			.patternLine("ccc")
+			.patternLine("ccc")
+			.patternLine("ccc")
+			.addCriterion("has_petcoke_item", hasItem(IPTags.Items.petcoke))
+			.build(this.out, rl("petcoke_items_to_block"));
+		ShapelessRecipeBuilder.shapelessRecipe(IPContent.Items.petcoke, 9)
+			.addIngredient(IPTags.getItemTag(IPTags.Blocks.petcoke))
+			.addCriterion("has_petcoke_block", hasItem(IPTags.getItemTag(IPTags.Blocks.petcoke)))
+			.build(this.out, rl("petcoke_block_to_items"));
+		
+		// Registering Petcoke as Fuel for the Blastfurnace
+		BlastFurnaceFuelBuilder.builder(IPTags.Items.petcoke)
+			.setTime(1200)
+			.build(this.out, rl("blastfurnace/fuel_petcoke"));
+		BlastFurnaceFuelBuilder.builder(IPTags.getItemTag(IPTags.Blocks.petcoke))
+			.setTime(12000)
+			.build(this.out, rl("blastfurnace/fuel_petcoke_block"));
+		
+		// Petcoke Dust recipes
+		CrusherRecipeBuilder.builder(IPTags.Items.petcokeDust, 1)
+			.addInput(IPTags.Items.petcoke)
+			.setEnergy(2400)
+			.build(this.out, rl("crusher/petcoke"));
+		CrusherRecipeBuilder.builder(IPTags.Items.petcokeDust, 9)
+			.addInput(IPTags.Items.petcokeStorage)
+			.setEnergy(4800)
+			.build(this.out, rl("crusher/petcoke_block"));
+		
+		// Petcoke dust and Iron Ingot to make Steel Ingot
+		ArcFurnaceRecipeBuilder.builder(IETags.getTagsFor(EnumMetals.STEEL).ingot, 1)
+			.addIngredient("input", Tags.Items.INGOTS_IRON)
+			.addInput(IPTags.Items.petcokeDust)
+			.addSlag(IETags.slag, 1)
+			.setTime(400)
+			.setEnergy(204800)
+			.build(out, rl("arcfurnace/steel"));
+		
+		// 8 Petcoke Dust to 1 HOP Graphite Dust
+		SqueezerRecipeBuilder.builder()
+			.addResult(new IngredientWithSize(IETags.hopGraphiteDust))
+			.addInput(new IngredientWithSize(IPTags.Items.petcokeDust, 8))
+			.setEnergy(19200)
+			.build(out, rl("squeezer/graphite_dust"));
+	}
+	
+	private void hydrotreaterRecipes(){
+		SulfurRecoveryRecipeBuilder.builder(new FluidStack(IPContent.Fluids.diesel, 7), 512, 1)
+			.addInputFluid(new FluidTagInput(IPTags.Fluids.diesel_sulfur, 7))
+			.addSecondaryInputFluid(FluidTags.WATER, 7)
+			.addItemWithChance(new ItemStack(IEItems.Ingredients.dustSulfur), 0.02)
+			.build(out, rl("hydrotreater/sulfur_recovery"));
 	}
 	
 	private void speedboatUpgradeRecipes(){
@@ -143,7 +213,7 @@ public class IPRecipes extends RecipeProvider{
 	}
 	
 	private void blockRecipes(){
-		ShapedRecipeBuilder.shapedRecipe(Blocks.asphalt, 8)
+		FluidAwareShapedRecipeBuilder.builder(Blocks.asphalt, 8)
 			.key('C', IPContent.Items.bitumen)
 			.key('S', Tags.Items.SAND)
 			.key('G', Tags.Items.GRAVEL)
@@ -152,9 +222,10 @@ public class IPRecipes extends RecipeProvider{
 			.patternLine("GBG")
 			.patternLine("SCS")
 			.addCriterion("has_bitumen", hasItem(IPContent.Items.bitumen))
+			.addCriterion("has_slag", hasItem(IEItems.Ingredients.slag))
 			.build(this.out, rl("asphalt"));
 		
-		ShapedRecipeBuilder.shapedRecipe(Blocks.asphalt, 12)
+		FluidAwareShapedRecipeBuilder.builder(Blocks.asphalt, 12)
 			.key('C', IPContent.Items.bitumen)
 			.key('S', IEItems.Ingredients.slag)
 			.key('G', Tags.Items.GRAVEL)
@@ -166,6 +237,39 @@ public class IPRecipes extends RecipeProvider{
 			.addCriterion("has_slag", hasItem(IEItems.Ingredients.slag))
 			.build(this.out, rl("asphalt"));
 		
+		ShapedRecipeBuilder.shapedRecipe(Blocks.asphalt_stair, 6)
+			.key('A', IPTags.getItemTag(IPTags.Blocks.asphalt))
+			.patternLine("A  ")
+			.patternLine("AA ")
+			.patternLine("AAA")
+			.addCriterion("has_bitumen", hasItem(IPContent.Items.bitumen))
+			.addCriterion("has_slag", hasItem(IEItems.Ingredients.slag))
+			.build(this.out, rl("asphalt_stair"));
+		
+		ShapedRecipeBuilder.shapedRecipe(Blocks.asphalt_slab, 6)
+			.key('A', IPTags.getItemTag(IPTags.Blocks.asphalt))
+			.patternLine("AAA")
+			.addCriterion("has_bitumen", hasItem(IPContent.Items.bitumen))
+			.addCriterion("has_slag", hasItem(IEItems.Ingredients.slag))
+			.build(this.out, rl("asphalt_slab"));
+		
+		FluidAwareShapedRecipeBuilder.builder(Blocks.asphalt, 1)
+			.key('S', Blocks.asphalt_slab)
+			.patternLine("S")
+			.patternLine("S")
+			.addCriterion("has_bitumen", hasItem(IPContent.Items.bitumen))
+			.addCriterion("has_slag", hasItem(IEItems.Ingredients.slag))
+			.build(this.out, rl("asphalt"));
+		
+		SingleItemRecipeBuilder.stonecuttingRecipe(Ingredient.fromItems(Blocks.asphalt), Blocks.asphalt_slab, 2)
+			.addCriterion("has_asphalt", hasItem(Blocks.asphalt))
+			.build(this.out, "asphalt_slab_from_asphalt_stonecutting");
+		
+		SingleItemRecipeBuilder.stonecuttingRecipe(Ingredient.fromItems(Blocks.asphalt), Blocks.asphalt_stair)
+			.addCriterion("has_asphalt", hasItem(Blocks.asphalt))
+			.build(this.out, "asphalt_stairs_from_asphalt_stonecutting");
+		
+		
 		ShapedRecipeBuilder.shapedRecipe(Blocks.gas_generator)
 			.key('P', IETags.getTagsFor(EnumMetals.IRON).plate)
 			.key('G', IEBlocks.MetalDecoration.generator)
@@ -176,7 +280,7 @@ public class IPRecipes extends RecipeProvider{
 			.addCriterion("has_iron_plate", hasItem(IETags.getTagsFor(EnumMetals.IRON).plate))
 			.addCriterion("has_"+toPath(IEBlocks.MetalDevices.capacitorLV), hasItem(IEBlocks.MetalDevices.capacitorLV))
 			.addCriterion("has_"+toPath(IEBlocks.MetalDecoration.generator), hasItem(IEBlocks.MetalDecoration.generator))
-			.build(this.out, rl("generator"));
+			.build(this.out, rl("gas_generator"));
 		
 		ShapedRecipeBuilder.shapedRecipe(Blocks.auto_lubricator)
 			.key('G', Tags.Items.GLASS)
@@ -194,7 +298,7 @@ public class IPRecipes extends RecipeProvider{
 			.key('C', IEItems.Ingredients.componentSteel)
 			.key('P', IEBlocks.MetalDevices.fluidPipe)
 			.key('A', IEBlocks.MetalDevices.fluidPlacer)
-			.key('F', Items.FIRE_CHARGE)
+			.key('F', Items.FLINT_AND_STEEL)
 			.patternLine("IFI")
 			.patternLine("CAC")
 			.patternLine("IPI")
@@ -226,7 +330,6 @@ public class IPRecipes extends RecipeProvider{
 			.addCriterion("has_treated_planks", hasItem(IETags.getItemTag(IETags.treatedWood)))
 			.build(out);
 		
-		/* // TODO Speedboat is Functional? UNCOMMENT THIS!
 		ShapedRecipeBuilder.shapedRecipe(IPContent.Items.speedboat)
 			.key('P', IETags.getItemTag(IETags.treatedWood))
 			.key('E', IEBlocks.MetalDecoration.engineeringLight)
@@ -236,7 +339,6 @@ public class IPRecipes extends RecipeProvider{
 			.addCriterion("has_treated_planks", hasItem(IETags.getItemTag(IETags.treatedWood)))
 			.addCriterion("has_"+toPath(MetalDecoration.engineeringLight), hasItem(MetalDecoration.engineeringLight))
 			.build(this.out);
-		*/
 	}
 	
 	private ResourceLocation rl(String str){

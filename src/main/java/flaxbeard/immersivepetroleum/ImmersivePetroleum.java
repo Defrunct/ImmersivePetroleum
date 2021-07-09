@@ -3,6 +3,8 @@ package flaxbeard.immersivepetroleum;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+
 import flaxbeard.immersivepetroleum.api.crafting.pumpjack.PumpjackHandler;
 import flaxbeard.immersivepetroleum.client.ClientProxy;
 import flaxbeard.immersivepetroleum.common.CommonEventHandler;
@@ -10,6 +12,7 @@ import flaxbeard.immersivepetroleum.common.CommonProxy;
 import flaxbeard.immersivepetroleum.common.IPContent;
 import flaxbeard.immersivepetroleum.common.IPContent.Fluids;
 import flaxbeard.immersivepetroleum.common.IPSaveData;
+import flaxbeard.immersivepetroleum.common.IPTileTypes;
 import flaxbeard.immersivepetroleum.common.cfg.IPClientConfig;
 import flaxbeard.immersivepetroleum.common.cfg.IPCommonConfig;
 import flaxbeard.immersivepetroleum.common.cfg.IPServerConfig;
@@ -18,6 +21,7 @@ import flaxbeard.immersivepetroleum.common.crafting.Serializers;
 import flaxbeard.immersivepetroleum.common.network.IPPacketHandler;
 import flaxbeard.immersivepetroleum.common.util.commands.ReservoirCommand;
 import flaxbeard.immersivepetroleum.common.util.loot.IPLootFunctions;
+import net.minecraft.command.CommandSource;
 import net.minecraft.command.Commands;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
@@ -73,7 +77,8 @@ public class ImmersivePetroleum{
 		IPContent.populate();
 		IPLootFunctions.modConstruction();
 		
-		proxy.construct();
+		IPTileTypes.REGISTER.register(FMLJavaModLoadingContext.get().getModEventBus());
+		
 		proxy.registerContainersAndScreens();
 	}
 	
@@ -117,7 +122,11 @@ public class ImmersivePetroleum{
 	}
 	
 	public void registerCommand(RegisterCommandsEvent event){
-		event.getDispatcher().register(Commands.literal("ip").then(ReservoirCommand.create()));
+		LiteralArgumentBuilder<CommandSource> ip = Commands.literal("ip");
+		
+		ip.then(ReservoirCommand.create());
+		
+		event.getDispatcher().register(ip);
 	}
 	
 	public void addReloadListeners(AddReloadListenerEvent event){

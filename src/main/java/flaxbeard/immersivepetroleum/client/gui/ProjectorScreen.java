@@ -10,16 +10,14 @@ import java.util.function.Consumer;
 import org.lwjgl.opengl.GL11;
 
 import com.mojang.blaze3d.matrix.MatrixStack;
-import com.mojang.blaze3d.systems.RenderSystem;
 
 import blusunrize.immersiveengineering.api.multiblocks.MultiblockHandler;
 import blusunrize.immersiveengineering.api.multiblocks.MultiblockHandler.IMultiblock;
-import blusunrize.immersiveengineering.client.gui.elements.GuiReactiveList;
+import blusunrize.immersiveengineering.api.utils.TemplateWorldCreator;
 import blusunrize.immersiveengineering.common.blocks.multiblocks.UnionMultiblock;
+import flaxbeard.immersivepetroleum.client.gui.elements.GuiReactiveList;
 import flaxbeard.immersivepetroleum.client.render.IPRenderTypes;
 import flaxbeard.immersivepetroleum.common.items.ProjectorItem;
-import flaxbeard.immersivepetroleum.common.util.projector.MultiblockProjection;
-import flaxbeard.immersivepetroleum.common.util.projector.MultiblockProjection.IMultiblockBlockReader;
 import flaxbeard.immersivepetroleum.common.util.projector.Settings;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
@@ -45,6 +43,7 @@ import net.minecraft.util.math.vector.Vector3i;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.world.World;
 import net.minecraft.world.gen.feature.template.Template;
 import net.minecraftforge.client.model.data.EmptyModelData;
 import net.minecraftforge.client.model.data.IModelData;
@@ -68,7 +67,8 @@ public class ProjectorScreen extends Screen{
 	private int guiTop;
 	
 	private Lazy<List<IMultiblock>> multiblocks;
-	private IMultiblockBlockReader blockAccess;
+	private World templateWorld;
+	private IMultiblock multiblock;
 	private GuiReactiveList list;
 	private String[] listEntries;
 	
@@ -157,6 +157,8 @@ public class ProjectorScreen extends Screen{
 		this.listEntries = list.toArray(new String[0]);
 		GuiReactiveList guilist = new GuiReactiveList(this, this.guiLeft + 15, this.guiTop + 29, 89, 127, button -> listaction(button), this.listEntries);
 		guilist.setPadding(1, 1, 1, 1);
+		guilist.setTextColor(0);
+		guilist.setTextHoverColor(0x7F7FFF);
 		guilist.setTranslationFunc(str -> {
 			IMultiblock mb = this.multiblocks.get().get(Integer.valueOf(str));
 			if(mb instanceof UnionMultiblock && mb.getUniqueName().getPath().contains("excavator_demo")){
@@ -255,8 +257,9 @@ public class ProjectorScreen extends Screen{
 						}
 						matrix.pop();
 					}else{
-						if(this.blockAccess == null || (this.blockAccess.getMultiblock().getUniqueName().equals(mb.getUniqueName()))){
-							this.blockAccess = MultiblockProjection.getBlockAccessFor(mb);
+						if(this.templateWorld == null || (!this.multiblock.getUniqueName().equals(mb.getUniqueName()))){
+							this.templateWorld = TemplateWorldCreator.CREATOR.getValue().makeWorld(mb.getStructure(null), pos -> true);
+							this.multiblock = mb;
 						}
 						
 						final BlockRendererDispatcher blockRender = Minecraft.getInstance().getBlockRendererDispatcher();
@@ -269,7 +272,7 @@ public class ProjectorScreen extends Screen{
 									matrix.translate(info.pos.getX(), info.pos.getY(), info.pos.getZ());
 									int overlay = OverlayTexture.NO_OVERLAY;
 									IModelData modelData = EmptyModelData.INSTANCE;
-									TileEntity te = this.blockAccess.getTileEntity(info.pos);
+									TileEntity te = this.templateWorld.getTileEntity(info.pos);
 									if(te != null){
 										modelData = te.getModelData();
 									}
@@ -331,9 +334,8 @@ public class ProjectorScreen extends Screen{
 		}
 		
 		@Override
-		public void renderButton(MatrixStack matrix, int mouseX, int mouseY, float partialTicks){
+		public void renderWidget(MatrixStack matrix, int mouseX, int mouseY, float partialTicks){
 			Minecraft.getInstance().getTextureManager().bindTexture(GUI_TEXTURE);
-			RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
 			if(isHovered()){
 				fill(matrix, this.x, this.y + 1, this.x + this.iconSize, this.y + this.iconSize - 1, 0xAF7F7FFF);
 			}
@@ -438,9 +440,8 @@ public class ProjectorScreen extends Screen{
 		}
 		
 		@Override
-		public void renderButton(MatrixStack matrix, int mouseX, int mouseY, float partialTicks){
+		public void renderWidget(MatrixStack matrix, int mouseX, int mouseY, float partialTicks){
 			Minecraft.getInstance().getTextureManager().bindTexture(GUI_TEXTURE);
-			RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
 			if(isHovered()){
 				fill(matrix, this.x, this.y + 1, this.x + this.iconSize, this.y + this.iconSize - 1, 0xAF7F7FFF);
 			}

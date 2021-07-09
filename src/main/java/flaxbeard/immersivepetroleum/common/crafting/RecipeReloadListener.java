@@ -5,7 +5,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import flaxbeard.immersivepetroleum.ImmersivePetroleum;
+import flaxbeard.immersivepetroleum.api.crafting.CokerUnitRecipe;
 import flaxbeard.immersivepetroleum.api.crafting.DistillationRecipe;
+import flaxbeard.immersivepetroleum.api.crafting.SulfurRecoveryRecipe;
 import flaxbeard.immersivepetroleum.api.crafting.pumpjack.PumpjackHandler;
 import flaxbeard.immersivepetroleum.api.crafting.pumpjack.PumpjackHandler.ReservoirType;
 import net.minecraft.client.Minecraft;
@@ -52,6 +54,12 @@ public class RecipeReloadListener implements IResourceManagerReloadListener{
 		
 		ImmersivePetroleum.log.info("Loading Reservoirs.");
 		PumpjackHandler.reservoirs = filterRecipes(recipes, ReservoirType.class, ReservoirType.TYPE);
+		
+		ImmersivePetroleum.log.info("Loading Coker-Unit Recipes.");
+		CokerUnitRecipe.recipes = filterRecipes(recipes, CokerUnitRecipe.class, CokerUnitRecipe.TYPE);
+		
+		ImmersivePetroleum.log.info("Loading Sulfur Recovery Recipes.");
+		SulfurRecoveryRecipe.recipes = filterRecipes(recipes, SulfurRecoveryRecipe.class, SulfurRecoveryRecipe.TYPE);
 	}
 	
 	static <R extends IRecipe<?>> Map<ResourceLocation, R> filterRecipes(Collection<IRecipe<?>> recipes, Class<R> recipeClass, IRecipeType<R> recipeType){

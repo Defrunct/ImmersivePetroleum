@@ -27,12 +27,10 @@ import flaxbeard.immersivepetroleum.client.render.IPRenderTypes;
 import flaxbeard.immersivepetroleum.common.IPContent;
 import flaxbeard.immersivepetroleum.common.IPContent.Items;
 import flaxbeard.immersivepetroleum.common.util.projector.MultiblockProjection;
-import flaxbeard.immersivepetroleum.common.util.projector.MultiblockProjection.IMultiblockBlockReader;
 import flaxbeard.immersivepetroleum.common.util.projector.Settings;
 import flaxbeard.immersivepetroleum.common.util.projector.Settings.Mode;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BlockModelRenderer;
 import net.minecraft.client.renderer.BlockRendererDispatcher;
@@ -139,9 +137,9 @@ public class ProjectorItem extends IPItemBase{
 				tooltip.add(flip);
 			}else{
 				ITextComponent text = new StringTextComponent("[")
-						.append(new TranslationTextComponent("desc.immersivepetroleum.info.projector.holdshift"))
+						.appendSibling(new TranslationTextComponent("desc.immersivepetroleum.info.projector.holdshift"))
 						.appendString("] ")
-						.append(new TranslationTextComponent("desc.immersivepetroleum.info.projector.holdshift.text"))
+						.appendSibling(new TranslationTextComponent("desc.immersivepetroleum.info.projector.holdshift.text"))
 						.mergeStyle(TextFormatting.DARK_AQUA);
 				tooltip.add(text);
 			}
@@ -156,9 +154,9 @@ public class ProjectorItem extends IPItemBase{
 				tooltip.add(ctrl2);
 			}else{
 				ITextComponent text = new StringTextComponent("[")
-						.append(new TranslationTextComponent("desc.immersivepetroleum.info.projector.holdctrl"))
+						.appendSibling(new TranslationTextComponent("desc.immersivepetroleum.info.projector.holdctrl"))
 						.appendString("] ")
-						.append(new TranslationTextComponent("desc.immersivepetroleum.info.projector.holdctrl.text"))
+						.appendSibling(new TranslationTextComponent("desc.immersivepetroleum.info.projector.holdctrl.text"))
 						.mergeStyle(TextFormatting.DARK_PURPLE);
 				tooltip.add(text);
 			}
@@ -282,16 +280,16 @@ public class ProjectorItem extends IPItemBase{
 					}
 					
 					Predicate<MultiblockProjection.Info> pred = layer -> {
-						BlockState tstate = layer.blockAccess.getBlockState(layer.templatePos);
+						BlockState tstate = layer.templateWorld.getBlockState(layer.templatePos);
 						tstate = tstate.rotate(world, pos, settings.getRotation());
 						
-						ProjectorEvent.PlaceBlock event = new ProjectorEvent.PlaceBlock(layer.blockAccess, layer.templatePos, world, layer.tPos, tstate, settings.getRotation());
+						ProjectorEvent.PlaceBlock event = new ProjectorEvent.PlaceBlock(layer.multiblock, layer.templateWorld, layer.templatePos, world, layer.tPos, tstate, settings.getRotation());
 						if(!MinecraftForge.EVENT_BUS.post(event)){
 							tstate = event.getState();
 							
 							world.setBlockState(layer.tPos.add(hit), tstate);
 							
-							ProjectorEvent.PlaceBlockPost postEvent = new ProjectorEvent.PlaceBlockPost(layer.blockAccess, event.getTemplatePos(), world, layer.tPos, event.getState(), settings.getRotation());
+							ProjectorEvent.PlaceBlockPost postEvent = new ProjectorEvent.PlaceBlockPost(layer.multiblock, layer.templateWorld, event.getTemplatePos(), world, layer.tPos, event.getState(), settings.getRotation());
 							MinecraftForge.EVENT_BUS.post(postEvent);
 						}
 						
@@ -428,31 +426,32 @@ public class ProjectorItem extends IPItemBase{
 						return true; // breaks the internal loop
 					}
 					
-					if(isPlaced.booleanValue()){ // Render only slices when
-													// placed
+					if(isPlaced.booleanValue()){ // Render only slices when placed
 						if(layer == currentLayer.getValue()){
 							boolean skip = false;
 							BlockState toCompare = world.getBlockState(info.tPos.add(hit));
-							if(info.blockAccess.getBlockState(info.templatePos).getBlock() == toCompare.getBlock()){
-								toRender.add(new RenderInfo(RenderInfo.Layer.PERFECT, info.blockAccess, info.templatePos, info.settings, info.tPos));
+							BlockState tState = info.templateWorld.getBlockState(info.templatePos).rotate(world, info.tPos.add(hit), info.settings.getRotation());
+							if(tState == toCompare){
+								toRender.add(new RenderInfo(RenderInfo.Layer.PERFECT, info));
 								goodBlocks.increment();
 								skip = true;
 							}else{
 								// Making it this far only needs an air check,
 								// the other already proved to be false.
-								if(toCompare.getBlock() != Blocks.AIR){
-									toRender.add(new RenderInfo(RenderInfo.Layer.BAD, info.blockAccess, info.templatePos, info.settings, info.tPos));
+								if(!toCompare.getBlockState().getBlock().isAir(toCompare.getBlockState(), info.templateWorld, info.tPos.add(hit))){
+									toRender.add(new RenderInfo(RenderInfo.Layer.BAD, info));
 									skip = true;
+								}else{
+									badBlocks.increment();
 								}
-								badBlocks.increment();
 							}
 							
 							if(!skip){
-								toRender.add(new RenderInfo(RenderInfo.Layer.ALL, info.blockAccess, info.templatePos, info.settings, info.tPos));
+								toRender.add(new RenderInfo(RenderInfo.Layer.ALL, info));
 							}
 						}
 					}else{ // Render all when not placed
-						toRender.add(new RenderInfo(RenderInfo.Layer.ALL, info.blockAccess, info.templatePos, info.settings, info.tPos));
+						toRender.add(new RenderInfo(RenderInfo.Layer.ALL, info));
 					}
 					
 					return false;
@@ -479,11 +478,16 @@ public class ProjectorItem extends IPItemBase{
 				for(RenderInfo rInfo:toRender){
 					switch(rInfo.layer){
 						case ALL:{ // All / Slice
-							float alpha = heldStack.getItem() == rInfo.getState().getBlock().asItem() ? 0.75F : 0.25F;
+							boolean held = heldStack.getItem() == rInfo.getState().getBlock().asItem();
+							float alpha = held ? 0.55F : 0.25F;
 							
 							matrix.push();
 							{
-								renderPhantom(matrix, projection.getMultiblockBlockAccess(), world, rInfo.templatePos, rInfo.worldPos, rInfo.settings.getRotation(), settings.isMirrored(), flicker, alpha, partialTicks);
+								renderPhantom(matrix, world, rInfo, settings.isMirrored(), flicker, alpha, partialTicks);
+								
+								if(held){
+									renderCenteredOutlineBox(matrix, 0xAFAFAF, flicker);
+								}
 							}
 							matrix.pop();
 							break;
@@ -557,7 +561,11 @@ public class ProjectorItem extends IPItemBase{
 			}
 		}
 		
-		private static void renderPhantom(MatrixStack matrix, IMultiblockBlockReader blockAccess, World world, BlockPos templatePos, BlockPos worldPos, Rotation rotation, boolean mirror, float flicker, float alpha, float partialTicks){
+		private static void renderPhantom(MatrixStack matrix, World world, RenderInfo rInfo, boolean mirror, float flicker, float alpha, float partialTicks){
+			renderPhantom(matrix, rInfo.multiblock, rInfo.templateWorld, world, rInfo.templatePos, rInfo.worldPos, rInfo.settings.getRotation(), mirror, flicker, alpha, partialTicks);
+		}
+		
+		private static void renderPhantom(MatrixStack matrix, IMultiblock multiblock, World templateWorld, World world, BlockPos templatePos, BlockPos worldPos, Rotation rotation, boolean mirror, float flicker, float alpha, float partialTicks){
 			BlockRendererDispatcher dispatcher = ClientUtils.mc().getBlockRendererDispatcher();
 			BlockModelRenderer blockRenderer = dispatcher.getBlockModelRenderer();
 			BlockColors blockColors = ClientUtils.mc().getBlockColors();
@@ -567,15 +575,15 @@ public class ProjectorItem extends IPItemBase{
 			
 			IRenderTypeBuffer.Impl buffer = IRenderTypeBuffer.getImpl(Tessellator.getInstance().getBuffer());
 			
-			BlockState state = blockAccess.getBlockState(templatePos);
+			BlockState state = templateWorld.getBlockState(templatePos);
 			state = state.rotate(world, worldPos, rotation);
 			
-			ProjectorEvent.RenderBlock renderEvent = new ProjectorEvent.RenderBlock(blockAccess, templatePos, world, worldPos, state, rotation);
+			ProjectorEvent.RenderBlock renderEvent = new ProjectorEvent.RenderBlock(multiblock, templateWorld, templatePos, world, worldPos, state, rotation);
 			if(!MinecraftForge.EVENT_BUS.post(renderEvent)){
 				state = renderEvent.getState();
 				
 				IModelData modelData = EmptyModelData.INSTANCE;
-				TileEntity te = blockAccess.getTileEntity(templatePos);
+				TileEntity te = templateWorld.getTileEntity(templatePos);
 				if(te != null){
 					te.cachedBlockState = state;
 					modelData = te.getModelData();
@@ -796,21 +804,23 @@ public class ProjectorItem extends IPItemBase{
 	
 	private static class RenderInfo{
 		public final Layer layer;
-		public final IMultiblockBlockReader blockAccess;
+		public final IMultiblock multiblock;
+		public final World templateWorld;
 		public final BlockPos templatePos;
 		public final BlockPos worldPos;
 		public final PlacementSettings settings;
 		
-		public RenderInfo(Layer layer, IMultiblockBlockReader blockAccess, BlockPos templatePos, PlacementSettings settings, BlockPos worldPos){
+		public RenderInfo(Layer layer, MultiblockProjection.Info info){
 			this.layer = layer;
-			this.blockAccess = blockAccess;
-			this.templatePos = templatePos;
-			this.worldPos = worldPos;
-			this.settings = settings;
+			this.multiblock = info.multiblock;
+			this.templateWorld = info.templateWorld;
+			this.templatePos = info.templatePos;
+			this.settings = info.settings;
+			this.worldPos = info.tPos;
 		}
 		
 		public BlockState getState(){
-			return this.blockAccess.getBlockState(this.templatePos);
+			return this.templateWorld.getBlockState(this.templatePos);
 		}
 		
 		public static enum Layer{

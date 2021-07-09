@@ -12,7 +12,8 @@ import blusunrize.immersiveengineering.common.util.Utils;
 import flaxbeard.immersivepetroleum.api.crafting.LubricantHandler;
 import flaxbeard.immersivepetroleum.api.crafting.LubricatedHandler;
 import flaxbeard.immersivepetroleum.api.crafting.LubricatedHandler.ILubricationHandler;
-import flaxbeard.immersivepetroleum.common.blocks.AutoLubricatorBlock;
+import flaxbeard.immersivepetroleum.common.IPTileTypes;
+import flaxbeard.immersivepetroleum.common.blocks.metal.AutoLubricatorBlock;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -20,11 +21,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.loot.LootContext;
 import net.minecraft.loot.LootParameters;
 import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.network.NetworkManager;
-import net.minecraft.network.play.server.SUpdateTileEntityPacket;
 import net.minecraft.tileentity.ITickableTileEntity;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.Direction;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.AxisAlignedBB;
@@ -44,9 +42,7 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 
-public class AutoLubricatorTileEntity extends TileEntity implements ITickableTileEntity, IPlayerInteraction, IBlockOverlayText, ITileDrop{
-	public static TileEntityType<AutoLubricatorTileEntity> TYPE;
-	
+public class AutoLubricatorTileEntity extends IPTileEntityBase implements ITickableTileEntity, IPlayerInteraction, IBlockOverlayText, ITileDrop{
 	public boolean isSlave;
 	public boolean isActive;
 	public boolean predictablyDraining = false;
@@ -54,17 +50,11 @@ public class AutoLubricatorTileEntity extends TileEntity implements ITickableTil
 	public FluidTank tank = new FluidTank(8000, fluid -> (fluid != null && LubricantHandler.isValidLube(fluid.getFluid())));
 	
 	public AutoLubricatorTileEntity(){
-		this(TYPE);
-	}
-	
-	public AutoLubricatorTileEntity(TileEntityType<?> tileEntityTypeIn){
-		super(tileEntityTypeIn);
+		super(IPTileTypes.AUTOLUBE.get());
 	}
 	
 	@Override
-	public void read(BlockState state, CompoundNBT compound){
-		super.read(state, compound);
-		
+	protected void readCustom(BlockState state, CompoundNBT compound){
 		this.isSlave = compound.getBoolean("slave");
 		this.isActive = compound.getBoolean("active");
 		this.predictablyDraining = compound.getBoolean("predictablyDraining");
@@ -78,9 +68,7 @@ public class AutoLubricatorTileEntity extends TileEntity implements ITickableTil
 	}
 	
 	@Override
-	public CompoundNBT write(CompoundNBT compound){
-		super.write(compound);
-		
+	protected void writeCustom(CompoundNBT compound){
 		compound.putBoolean("slave", this.isSlave);
 		compound.putBoolean("active", this.isActive);
 		compound.putBoolean("predictablyDraining", this.predictablyDraining);
@@ -89,28 +77,6 @@ public class AutoLubricatorTileEntity extends TileEntity implements ITickableTil
 		
 		CompoundNBT tank = this.tank.writeToNBT(new CompoundNBT());
 		compound.put("tank", tank);
-		
-		return compound;
-	}
-	
-	@Override
-	public SUpdateTileEntityPacket getUpdatePacket(){
-		return new SUpdateTileEntityPacket(this.pos, 3, getUpdateTag());
-	}
-	
-	@Override
-	public void handleUpdateTag(BlockState state, CompoundNBT tag){
-		read(state, tag);
-	}
-	
-	@Override
-	public CompoundNBT getUpdateTag(){
-		return write(new CompoundNBT());
-	}
-	
-	@Override
-	public void onDataPacket(NetworkManager net, SUpdateTileEntityPacket pkt){
-		read(getBlockState(), pkt.getNbtCompound());
 	}
 	
 	public void readTank(CompoundNBT nbt){

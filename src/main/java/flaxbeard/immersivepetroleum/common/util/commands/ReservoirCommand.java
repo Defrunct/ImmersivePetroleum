@@ -32,10 +32,11 @@ public class ReservoirCommand{
 	
 	public static LiteralArgumentBuilder<CommandSource> create(){
 		LiteralArgumentBuilder<CommandSource> lab = Commands.literal("reservoir")
+				.executes(source -> {
+					CommandUtils.sendHelp(source.getSource(), "");
+					return Command.SINGLE_SUCCESS;
+				})
 				.requires(source -> source.hasPermissionLevel(4));
-		
-		lab.then(Commands.literal("list")
-				.executes(source -> list(source.getSource().asPlayer())));
 		
 		lab.then(Commands.literal("get")
 				.executes(source -> get(source.getSource().asPlayer())));
@@ -43,25 +44,22 @@ public class ReservoirCommand{
 		lab.then(setReservoir());
 		
 		lab.then(Commands.literal("setAmount")
+				.executes(source -> {
+					CommandUtils.sendHelp(source.getSource(), ".setAmount");
+					return Command.SINGLE_SUCCESS;
+				})
 				.then(Commands.argument("amount", IntegerArgumentType.integer(0, Integer.MAX_VALUE))
 						.executes(context -> setAmount(context.getSource().asPlayer(), context.getArgument("amount", Integer.class)))));
 		
 		lab.then(Commands.literal("setCapacity")
+				.executes(source -> {
+					CommandUtils.sendHelp(source.getSource(), ".setCapacity");
+					return Command.SINGLE_SUCCESS;
+				})
 				.then(Commands.argument("capacity", IntegerArgumentType.integer(0, Integer.MAX_VALUE))
 						.executes(context -> setCapacity(context.getSource().asPlayer(), context.getArgument("capacity", Integer.class)))));
 		
 		return lab;
-	}
-	
-	static int list(ServerPlayerEntity playerEntity){
-		String s = "";
-		int i = 0;
-		for(ReservoirType res:PumpjackHandler.reservoirs.values()){
-			s += ((i++) > 0 ? ", " : "") + res.name;
-		}
-		
-		playerEntity.sendMessage(new StringTextComponent(s), Util.DUMMY_UUID);
-		return Command.SINGLE_SUCCESS;
 	}
 	
 	static int get(ServerPlayerEntity playerEntity){
@@ -87,16 +85,16 @@ public class ReservoirCommand{
 			ServerPlayerEntity player = command.getSource().asPlayer();
 			setReservoir(command, player.getPosition().getX() >> 4, player.getPosition().getZ() >> 4);
 			return Command.SINGLE_SUCCESS;
-		});
-		nameArg.then(Commands.argument("location", ColumnPosArgument.columnPos()).executes(command -> {
-			ColumnPos pos = command.getArgument("location", ColumnPos.class);
+		}).then(Commands.argument("location", ColumnPosArgument.columnPos()).executes(command -> {
+			ColumnPos pos = ColumnPosArgument.fromBlockPos(command, "location");
 			setReservoir(command, pos.x, pos.z);
 			return Command.SINGLE_SUCCESS;
 		}));
 		
-		LiteralArgumentBuilder<CommandSource> set = Commands.literal("setTest");
-		set.then(nameArg);
-		return set;
+		return Commands.literal("set").executes(source -> {
+			CommandUtils.sendHelp(source.getSource(), ".set");
+			return Command.SINGLE_SUCCESS;
+		}).then(nameArg);
 	}
 	
 	static void setReservoir(CommandContext<CommandSource> context, int xChunk, int zChunk){
@@ -168,14 +166,5 @@ public class ReservoirCommand{
 	static ReservoirWorldInfo getOilWorldInfo(ServerPlayerEntity playerEntity){
 		ChunkPos coords = new ChunkPos(playerEntity.getPosition());
 		return PumpjackHandler.getOrCreateOilWorldInfo(playerEntity.getEntityWorld(), coords.x, coords.z);
-	}
-	
-	static ChunkPos getChunkCoords(ServerPlayerEntity playerEntity){
-		return new ChunkPos(playerEntity.getPosition());
-	}
-	
-	@Deprecated // TODO Maybe add this somewhere again?
-	static String getHelp(String subIdent){
-		return "chat.immersivepetroleum.command.reservoir" + subIdent + ".help";
 	}
 }

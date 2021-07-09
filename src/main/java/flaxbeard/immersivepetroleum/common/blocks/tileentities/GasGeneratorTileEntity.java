@@ -16,24 +16,19 @@ import blusunrize.immersiveengineering.api.TargetingInfo;
 import blusunrize.immersiveengineering.api.energy.immersiveflux.FluxStorage;
 import blusunrize.immersiveengineering.api.wires.Connection;
 import blusunrize.immersiveengineering.api.wires.ConnectionPoint;
-import blusunrize.immersiveengineering.api.wires.ConnectorTileHelper;
 import blusunrize.immersiveengineering.api.wires.IImmersiveConnectable;
 import blusunrize.immersiveengineering.api.wires.WireType;
 import blusunrize.immersiveengineering.api.wires.impl.ImmersiveConnectableTileEntity;
-import blusunrize.immersiveengineering.api.wires.localhandlers.EnergyTransferHandler.EnergyConnector;
+import blusunrize.immersiveengineering.api.wires.localhandlers.EnergyTransferHandler;
 import blusunrize.immersiveengineering.api.wires.utils.WireUtils;
 import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IBlockOverlayText;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IDirectionalTile;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.IPlayerInteraction;
-import blusunrize.immersiveengineering.common.blocks.IEBlockInterfaces.ITileDrop;
 import blusunrize.immersiveengineering.common.config.IEServerConfig;
+import blusunrize.immersiveengineering.common.util.EnergyHelper;
 import blusunrize.immersiveengineering.common.util.EnergyHelper.IEForgeEnergyWrapper;
-import blusunrize.immersiveengineering.common.util.EnergyHelper.IIEInternalFluxConnector;
-import blusunrize.immersiveengineering.common.util.EnergyHelper.IIEInternalFluxHandler;
 import blusunrize.immersiveengineering.common.util.IESounds;
 import blusunrize.immersiveengineering.common.util.Utils;
 import flaxbeard.immersivepetroleum.api.energy.FuelHandler;
+import flaxbeard.immersivepetroleum.common.IPTileTypes;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.LivingEntity;
@@ -47,7 +42,6 @@ import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SUpdateTileEntityPacket;
 import net.minecraft.particles.ParticleTypes;
 import net.minecraft.tileentity.ITickableTileEntity;
-import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.Direction;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
@@ -66,23 +60,17 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
 
-public class GasGeneratorTileEntity extends ImmersiveConnectableTileEntity implements IDirectionalTile, ITickableTileEntity, IPlayerInteraction, IBlockOverlayText, IIEInternalFluxConnector, ITileDrop, IIEInternalFluxHandler, IEBlockInterfaces.ISoundTile, EnergyConnector{
-	public static TileEntityType<GasGeneratorTileEntity> TYPE;
-	
+public class GasGeneratorTileEntity extends ImmersiveConnectableTileEntity implements ITickableTileEntity, IEBlockInterfaces.IDirectionalTile, IEBlockInterfaces.IPlayerInteraction, IEBlockInterfaces.IBlockOverlayText, IEBlockInterfaces.ITileDrop, IEBlockInterfaces.ISoundTile, EnergyHelper.IIEInternalFluxConnector, EnergyHelper.IIEInternalFluxHandler, EnergyTransferHandler.EnergyConnector{
 	public static final int FLUX_CAPACITY = 8000;
 	
 	protected WireType wireType;
 	protected boolean isActive = false;
 	protected Direction facing = Direction.NORTH;
-	protected FluxStorage energyStorage = new FluxStorage(getMaxStorage(), getMaxInput(), getMaxOutput());
+	protected FluxStorage energyStorage = new FluxStorage(getMaxStorage(), Integer.MAX_VALUE, getMaxOutput());
 	protected FluidTank tank = new FluidTank(FLUX_CAPACITY, fluid -> (fluid != null && fluid != FluidStack.EMPTY && FuelHandler.isValidFuel(fluid.getFluid())));
 	
 	public GasGeneratorTileEntity(){
-		super(TYPE);
-	}
-	
-	public int getMaxInput(){
-		return IEServerConfig.MACHINES.lvCapConfig.input.getAsInt();
+		super(IPTileTypes.GENERATOR.get());
 	}
 	
 	public int getMaxOutput(){
@@ -94,25 +82,28 @@ public class GasGeneratorTileEntity extends ImmersiveConnectableTileEntity imple
 	}
 	
 	@Override
-	public CompoundNBT serializeNBT(){
-		CompoundNBT nbt = super.serializeNBT();
-		
-		nbt.putBoolean("isActive", this.isActive);
-		nbt.put("tank", this.tank.writeToNBT(new CompoundNBT()));
-		nbt.put("buffer", this.energyStorage.writeToNBT(new CompoundNBT()));
-		nbt.putString("wiretype", this.wireType.getUniqueName());
-		
-		return nbt;
-	}
-	
-	@Override
-	public void deserializeNBT(CompoundNBT nbt){
-		super.deserializeNBT(nbt);
+	public void read(BlockState state, CompoundNBT nbt){
+		super.read(state, nbt);
 		
 		this.isActive = nbt.getBoolean("isActive");
 		this.tank.readFromNBT(nbt.getCompound("tank"));
 		this.energyStorage.readFromNBT(nbt.getCompound("buffer"));
 		this.wireType = nbt.contains("wiretype") ? WireUtils.getWireTypeFromNBT(nbt, "wiretype") : null;
+	}
+	
+	@Override
+	public CompoundNBT write(CompoundNBT compound){
+		CompoundNBT nbt = super.write(compound);
+		
+		nbt.putBoolean("isActive", this.isActive);
+		nbt.put("tank", this.tank.writeToNBT(new CompoundNBT()));
+		nbt.put("buffer", this.energyStorage.writeToNBT(new CompoundNBT()));
+		
+		if(this.wireType != null){
+			nbt.putString("wiretype", this.wireType.getUniqueName());
+		}
+		
+		return nbt;
 	}
 	
 	@Override
@@ -154,13 +145,6 @@ public class GasGeneratorTileEntity extends ImmersiveConnectableTileEntity imple
 		world.notifyNeighborsOfStateChange(pos, state.getBlock());
 	}
 	
-	/** TODO Temporary Solution from Malte, until it's sorted out. */
-	@Override
-	public void remove(){
-		super.remove();
-		ConnectorTileHelper.remove(world, this);
-	}
-	
 	@Override
 	public List<ItemStack> getTileDrops(LootContext context){
 		ItemStack stack;
@@ -189,7 +173,7 @@ public class GasGeneratorTileEntity extends ImmersiveConnectableTileEntity imple
 	
 	@Override
 	public int getAvailableEnergy(){
-		return this.energyStorage.getEnergyStored();
+		return Math.min(getMaxOutput(), this.energyStorage.getEnergyStored());
 	}
 	
 	@Override
@@ -234,13 +218,30 @@ public class GasGeneratorTileEntity extends ImmersiveConnectableTileEntity imple
 		return this.energyWrapper;
 	}
 	
-	private LazyOptional<IFluidHandler> fluidHandler = LazyOptional.of(() -> this.tank);
+	private LazyOptional<IFluidHandler> fluidHandler;
 	@Override
 	public <T> LazyOptional<T> getCapability(Capability<T> cap, Direction side){
 		if(cap == CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY && (side == null || side == Direction.UP)){
+			if(this.fluidHandler == null){
+				fluidHandler = LazyOptional.of(() -> this.tank);
+			}
 			return this.fluidHandler.cast();
 		}
 		return super.getCapability(cap, side);
+	}
+	
+	@Override
+	protected void invalidateCaps(){
+		super.invalidateCaps();
+		if(this.fluidHandler != null)
+			this.fluidHandler.invalidate();
+	}
+	
+	@Override
+	public void remove(){
+		super.remove();
+		if(this.fluidHandler != null)
+			this.fluidHandler.invalidate();
 	}
 	
 	@Override
@@ -315,38 +316,35 @@ public class GasGeneratorTileEntity extends ImmersiveConnectableTileEntity imple
 	
 	@Override
 	public void tick(){
-		boolean lastActive = this.isActive;
-		this.isActive = false;
-		if(!this.world.isBlockPowered(this.pos) && this.tank.getFluid() != null){
-			Fluid fluid = this.tank.getFluid().getFluid();
-			if(FuelHandler.isValidFuel(fluid)){
-				int amount = FuelHandler.getFuelUsedPerTick(fluid);
-				if(this.tank.getFluidAmount() >= amount){
-					if(!this.world.isRemote){
-						if(this.energyStorage.receiveEnergy(FuelHandler.getFluxGeneratedPerTick(fluid), false) > 0){
-							this.tank.drain(new FluidStack(fluid, amount), FluidAction.EXECUTE);
-							this.isActive = true;
-						}
-					}else{
-						if(this.energyStorage.receiveEnergy(FuelHandler.getFluxGeneratedPerTick(fluid), true) > 0){
-							this.isActive = true;
-						}
-					}
-				}
-			}
-		}
-		
 		if(this.world.isRemote){
-			ImmersiveEngineering.proxy.handleTileSound(IESounds.dieselGenerator, this, this.isActive, .3f, .5f);
+			ImmersiveEngineering.proxy.handleTileSound(IESounds.dieselGenerator, this, this.isActive, .3f, .75f);
 			if(this.isActive && this.world.getGameTime() % 4 == 0){
 				Direction fl = this.facing;
 				Direction fw = this.facing.rotateY();
-				this.world.addParticle(this.world.rand.nextInt(10) == 0 ? ParticleTypes.LARGE_SMOKE : ParticleTypes.SMOKE, this.pos.getX() + .5 + (fl.getXOffset() * 2 / 16F) + (-fw.getXOffset() * .6125f), this.pos.getY() + .4, this.pos.getZ() + .5 + (fl.getZOffset() * 2 / 16F) + (-fw.getZOffset() * .6125f), 0, 0, 0);
+				
+				Vector3i vec = fw.getOpposite().getDirectionVec();
+				
+				double x = this.pos.getX() + .5 + (fl.getXOffset() * 2 / 16F) + (-fw.getXOffset() * .6125f);
+				double y = this.pos.getY() + .4;
+				double z = this.pos.getZ() + .5 + (fl.getZOffset() * 2 / 16F) + (-fw.getZOffset() * .6125f);
+				
+				this.world.addParticle(this.world.rand.nextInt(10) == 0 ? ParticleTypes.LARGE_SMOKE : ParticleTypes.SMOKE, x, y, z, vec.getX() * 0.025, 0, vec.getZ() * 0.025);
 			}
-		}
-		
-		if(lastActive != this.isActive || (!this.world.isRemote && this.isActive)){
-			markDirty();
+		}else{
+			boolean lastActive = this.isActive;
+			this.isActive = false;
+			if(!this.world.isBlockPowered(this.pos) && this.tank.getFluid() != null){
+				Fluid fluid = this.tank.getFluid().getFluid();
+				int amount = FuelHandler.getFuelUsedPerTick(fluid);
+				if(amount > 0 && this.tank.getFluidAmount() >= amount && this.energyStorage.receiveEnergy(FuelHandler.getFluxGeneratedPerTick(fluid), false) > 0){
+					this.tank.drain(new FluidStack(fluid, amount), FluidAction.EXECUTE);
+					this.isActive = true;
+				}
+			}
+			
+			if(lastActive != this.isActive || (!this.world.isRemote && this.isActive)){
+				markDirty();
+			}
 		}
 	}
 	

@@ -5,7 +5,7 @@ import javax.annotation.Nullable;
 import blusunrize.immersiveengineering.ImmersiveEngineering;
 import flaxbeard.immersivepetroleum.ImmersivePetroleum;
 import flaxbeard.immersivepetroleum.common.IPContent;
-import flaxbeard.immersivepetroleum.common.util.fluids.IPFluid;
+import flaxbeard.immersivepetroleum.common.fluids.IPFluid;
 import net.minecraft.data.DataGenerator;
 import net.minecraft.fluid.Fluid;
 import net.minecraft.item.Item;
@@ -39,6 +39,8 @@ public class IPItemModels extends ItemModelProvider{
 			.texture("layer0", modLoc("item/schematic"));
 		
 		genericItem(IPContent.Items.bitumen);
+		genericItem(IPContent.Items.petcoke);
+		genericItem(IPContent.Items.petcokedust);
 		genericItem(IPContent.Items.oil_can);
 		genericItem(IPContent.Items.speedboat);
 		
@@ -50,6 +52,8 @@ public class IPItemModels extends ItemModelProvider{
 		
 		pumpjackItem();
 		distillationtowerItem();
+		cokerunitItem();
+		hydrotreaterItem();
 		generatorItem();
 		autolubeItem();
 		flarestackItem();
@@ -59,6 +63,36 @@ public class IPItemModels extends ItemModelProvider{
 		
 		for(IPFluid f:IPFluid.FLUIDS)
 			createBucket(f);
+	}
+	
+	private void hydrotreaterItem(){
+		ItemModelBuilder model = obj(IPContent.Multiblock.hydrotreater, "multiblock/obj/hydrotreater.obj")
+				.texture("texture", modLoc("multiblock/hydrotreater"));
+		
+		ModelBuilder<?>.TransformsBuilder trans = model.transforms();
+		doTransform(trans, Perspective.FIRSTPERSON_LEFT, new Vector3f(0, 0, 0), new Vector3f(0, 225, 0), 0.0625F);
+		doTransform(trans, Perspective.FIRSTPERSON_RIGHT, new Vector3f(0, 0, 0), new Vector3f(0, 45, 0), 0.0625F);
+		doTransform(trans, Perspective.THIRDPERSON_LEFT, new Vector3f(0, 2.5F, 0), new Vector3f(75, 225, 0), 0.0625F);
+		doTransform(trans, Perspective.THIRDPERSON_RIGHT, new Vector3f(0, 2.5F, 0), new Vector3f(75, 45, 0), 0.0625F);
+		doTransform(trans, Perspective.HEAD, new Vector3f(0, 8, 0), null, 0.25F);
+		doTransform(trans, Perspective.GUI, new Vector3f(-1, -1, 0), new Vector3f(30, 225, 0), 0.15625F);
+		doTransform(trans, Perspective.GROUND, new Vector3f(0, 0, 0), null, 0.125F);
+		doTransform(trans, Perspective.FIXED, new Vector3f(0, -1, 0), null, 0.125F);
+	}
+	
+	private void cokerunitItem(){
+		ItemModelBuilder model = obj(IPContent.Multiblock.cokerunit, "multiblock/obj/cokerunit.obj")
+				.texture("texture", modLoc("multiblock/cokerunit"));
+		
+		ModelBuilder<?>.TransformsBuilder trans = model.transforms();
+		doTransform(trans, Perspective.FIRSTPERSON_LEFT, new Vector3f(0, 0, 0), new Vector3f(0, 225, 0), 0.03125F);
+		doTransform(trans, Perspective.FIRSTPERSON_RIGHT, new Vector3f(0, 0, 0), new Vector3f(0, 45, 0), 0.03125F);
+		doTransform(trans, Perspective.THIRDPERSON_LEFT, new Vector3f(0, 2.5F, 0), new Vector3f(75, 225, 0), 0.03125F);
+		doTransform(trans, Perspective.THIRDPERSON_RIGHT, new Vector3f(0, 2.5F, 0), new Vector3f(75, 45, 0), 0.03125F);
+		doTransform(trans, Perspective.HEAD, new Vector3f(0, 12, 0), null, 0.125F);
+		doTransform(trans, Perspective.GUI, new Vector3f(0, -4, 0), new Vector3f(30, 225, 0), 0.0625F);
+		doTransform(trans, Perspective.GROUND, new Vector3f(0, -8, 0), null, 0.03125F);
+		doTransform(trans, Perspective.FIXED, new Vector3f(0, -8, 0), null, 0.0625F);
 	}
 	
 	private void flarestackItem(){

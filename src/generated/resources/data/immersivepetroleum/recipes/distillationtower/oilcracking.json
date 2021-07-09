@@ -12,8 +12,8 @@
       "amount": 9
     },
     {
-      "fluid": "immersivepetroleum:diesel",
-      "amount": 27
+      "fluid": "immersivepetroleum:diesel_sulfur",
+      "amount": 14
     },
     {
       "fluid": "immersivepetroleum:gasoline",
@@ -24,5 +24,6 @@
     "tag": "forge:crude_oil",
     "amount": 75
   },
+  "time": 1,
   "energy": 2048
 }

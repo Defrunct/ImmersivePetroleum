@@ -18,10 +18,11 @@ import flaxbeard.immersivepetroleum.client.model.IPModels;
 import flaxbeard.immersivepetroleum.common.IPContent;
 import flaxbeard.immersivepetroleum.common.IPSaveData;
 import flaxbeard.immersivepetroleum.common.blocks.tileentities.AutoLubricatorTileEntity;
+import flaxbeard.immersivepetroleum.common.blocks.tileentities.CokerUnitTileEntity;
 import flaxbeard.immersivepetroleum.common.blocks.tileentities.DistillationTowerTileEntity;
 import flaxbeard.immersivepetroleum.common.blocks.tileentities.GasGeneratorTileEntity;
 import flaxbeard.immersivepetroleum.common.blocks.tileentities.PumpjackTileEntity;
-import flaxbeard.immersivepetroleum.common.entity.SpeedboatEntity;
+import flaxbeard.immersivepetroleum.common.entity.MotorboatEntity;
 import flaxbeard.immersivepetroleum.common.network.IPPacketHandler;
 import flaxbeard.immersivepetroleum.common.network.MessageDebugSync;
 import net.minecraft.block.BlockState;
@@ -190,6 +191,20 @@ public class DebugItem extends IPItemBase{
 		
 		TileEntity te = context.getWorld().getTileEntity(context.getPos());
 		switch(mode){
+			case GENERAL_TEST:{
+				if(context.getWorld().isRemote){
+					// Client
+				}else{
+					// Server
+				}
+				
+				if(te instanceof CokerUnitTileEntity){
+					CokerUnitTileEntity.updateShapes = true;
+					return ActionResultType.SUCCESS;
+				}
+				
+				return ActionResultType.PASS;
+			}
 			case INFO_TE_DISTILLATION_TOWER:{
 				if(te instanceof DistillationTowerTileEntity && !context.getWorld().isRemote){
 					DistillationTowerTileEntity tower = (DistillationTowerTileEntity) te;
@@ -202,7 +217,7 @@ public class DebugItem extends IPItemBase{
 						MultiFluidTank tank = tower.tanks[DistillationTowerTileEntity.TANK_OUTPUT];
 						for(int i = 0;i < tank.fluids.size();i++){
 							FluidStack fstack = tank.fluids.get(i);
-							tankInText.appendString(" ").append(fstack.getDisplayName()).appendString(" " + fstack.getAmount() + "mB,");
+							tankInText.appendString(" ").appendSibling(fstack.getDisplayName()).appendString(" " + fstack.getAmount() + "mB,");
 						}
 					}
 					
@@ -211,11 +226,11 @@ public class DebugItem extends IPItemBase{
 						MultiFluidTank tank = tower.tanks[DistillationTowerTileEntity.TANK_INPUT];
 						for(int i = 0;i < tank.fluids.size();i++){
 							FluidStack fstack = tank.fluids.get(i);
-							tankOutText.appendString(" ").append(fstack.getDisplayName()).appendString(" " + fstack.getAmount() + "mB,");
+							tankOutText.appendString(" ").appendSibling(fstack.getDisplayName()).appendString(" " + fstack.getAmount() + "mB,");
 						}
 					}
 					
-					player.sendMessage(new StringTextComponent("DistillationTower:\n").append(tankInText).append(tankOutText), Util.DUMMY_UUID);
+					player.sendMessage(new StringTextComponent("DistillationTower:\n").appendSibling(tankInText).appendSibling(tankOutText), Util.DUMMY_UUID);
 				}
 				return ActionResultType.PASS;
 			}
@@ -279,7 +294,7 @@ public class DebugItem extends IPItemBase{
 					out.appendString((lube.isSlave ? "Slave" : "Master") + ", ");
 					out.appendString((lube.predictablyDraining ? "Predictably Draining, " : ""));
 					if(!lube.tank.isEmpty()){
-						out.append(lube.tank.getFluid().getDisplayName()).appendString(" " + lube.tank.getFluidAmount() + "/" + lube.tank.getCapacity() + "mB");
+						out.appendSibling(lube.tank.getFluid().getDisplayName()).appendString(" " + lube.tank.getFluidAmount() + "/" + lube.tank.getCapacity() + "mB");
 					}else{
 						out.appendString("Empty");
 					}
@@ -312,7 +327,7 @@ public class DebugItem extends IPItemBase{
 		return ActionResultType.PASS;
 	}
 	
-	public void onSpeedboatClick(SpeedboatEntity speedboatEntity, PlayerEntity player, ItemStack debugStack){
+	public void onSpeedboatClick(MotorboatEntity speedboatEntity, PlayerEntity player, ItemStack debugStack){
 		if(speedboatEntity.world.isRemote || DebugItem.getMode(debugStack) != Modes.INFO_SPEEDBOAT){
 			return;
 		}
@@ -323,7 +338,7 @@ public class DebugItem extends IPItemBase{
 		if(fluid == FluidStack.EMPTY){
 			textOut.appendString("Tank: Empty");
 		}else{
-			textOut.appendString("Tank: " + fluid.getAmount() + "/" + speedboatEntity.getMaxFuel() + "mB of ").append(fluid.getDisplayName());
+			textOut.appendString("Tank: " + fluid.getAmount() + "/" + speedboatEntity.getMaxFuel() + "mB of ").appendSibling(fluid.getDisplayName());
 		}
 		
 		IFormattableTextComponent upgradesText = new StringTextComponent("\n");
@@ -333,10 +348,10 @@ public class DebugItem extends IPItemBase{
 			if(upgrade == null || upgrade == ItemStack.EMPTY){
 				upgradesText.appendString("Upgrade " + (++i) + ": Empty\n");
 			}else{
-				upgradesText.appendString("Upgrade " + (i++) + ": ").append(upgrade.getDisplayName()).appendString("\n");
+				upgradesText.appendString("Upgrade " + (i++) + ": ").appendSibling(upgrade.getDisplayName()).appendString("\n");
 			}
 		}
-		textOut.append(upgradesText);
+		textOut.appendSibling(upgradesText);
 		
 		player.sendMessage(textOut, Util.DUMMY_UUID);
 	}
@@ -437,6 +452,7 @@ public class DebugItem extends IPItemBase{
 		RESERVOIR_BIG_SCAN("Scan 5 Block Radius Area"),
 		CLEAR_RESERVOIR_CACHE("Clear Reservoir Cache"),
 		REFRESH_ALL_IPMODELS("Refresh all IPModels"),
+		GENERAL_TEST("You may not want to trigger this.")
 		;
 		
 		public final String display;

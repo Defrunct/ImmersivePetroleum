@@ -7,6 +7,7 @@ import com.mojang.blaze3d.matrix.MatrixStack;
 
 import blusunrize.immersiveengineering.api.IEProperties;
 import blusunrize.immersiveengineering.client.ClientUtils;
+import blusunrize.immersiveengineering.client.utils.RenderUtils;
 import blusunrize.immersiveengineering.common.blocks.multiblocks.IETemplateMultiblock;
 import flaxbeard.immersivepetroleum.ImmersivePetroleum;
 import flaxbeard.immersivepetroleum.common.IPContent;
@@ -20,6 +21,8 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.util.Direction;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.vector.Quaternion;
+import net.minecraft.util.math.vector.Vector3f;
 import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -54,7 +57,7 @@ public class PumpjackMultiblock extends IETemplateMultiblock{
 	public void renderFormedStructure(MatrixStack transform, IRenderTypeBuffer buffer){
 		if(this.te == null){
 			this.te = new PumpjackTileEntity();
-			this.te.setOverrideState(IPContent.Multiblock.pumpjack.getDefaultState().with(IEProperties.FACING_HORIZONTAL, Direction.WEST));
+			this.te.setOverrideState(IPContent.Multiblock.pumpjack.getDefaultState().with(IEProperties.FACING_HORIZONTAL, Direction.NORTH));
 		}
 		
 		if(this.list == null){
@@ -68,10 +71,11 @@ public class PumpjackMultiblock extends IETemplateMultiblock{
 			if(world != null){
 				transform.push();
 				transform.translate(1, 0, 0);
-				ClientUtils.renderModelTESRFast(this.list, buffer.getBuffer(RenderType.getSolid()), transform, 0xF000F0, OverlayTexture.NO_OVERLAY);
+				RenderUtils.renderModelTESRFast(this.list, buffer.getBuffer(RenderType.getSolid()), transform, 0xF000F0, OverlayTexture.NO_OVERLAY);
 				
 				transform.push();
-				transform.translate(-1, -1, -1);
+				transform.rotate(rot);
+				transform.translate(-2, -1, -1);
 				ImmersivePetroleum.proxy.renderTile(this.te, buffer.getBuffer(RenderType.getSolid()), transform, buffer);
 				transform.pop();
 				
@@ -79,4 +83,6 @@ public class PumpjackMultiblock extends IETemplateMultiblock{
 			}
 		}
 	}
+	
+	final Quaternion rot = new Quaternion(new Vector3f(0F, 1F, 0F), 90, true);
 }
